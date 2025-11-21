@@ -6,50 +6,52 @@ class CustomerHome:
     def __init__(self):
         self.window = tk.Tk()
         self.window.title("ScreenPass Movie List")
-        self.window.geometry("950x600")
+        self.window.geometry("1100x700")
 
         tk.Label(
             self.window,
             text="Now Showing",
-            font=("Arial", 22)
+            font=("Arial", 24)
         ).pack(pady=20)
+
+        self.poster_width = 220
+        self.poster_height = 330
+        self.poster_padding = 28
 
         movie_frame = tk.Frame(self.window)
         movie_frame.pack()
 
-        # Fake movie data for hover info
+        # movie data starring ma frends
         self.movie_data = {
             "Movie A": {
                 "title": "Movie A",
                 "year": "2024",
                 "rating": "PG-13 • 8.2/10",
-                "stars": "Starring John Doe and Anna Bright"
+                "stars": "Starring Kyle Guadz and Aubreng Olario"
             },
             "Movie B": {
                 "title": "Movie B",
                 "year": "2023",
                 "rating": "R • 7.5/10",
-                "stars": "Starring Chris Vale and Mira Sung"
+                "stars": "Starring James Homer and Kyle Adz"
             },
             "Movie C": {
                 "title": "Movie C",
                 "year": "2022",
                 "rating": "PG • 6.9/10",
-                "stars": "Starring Aya Rios and Mark Crane"
+                "stars": "Starring Jonathan ManinGO and Steven Deliverables"
             },
             "Movie D": {
                 "title": "Movie D",
                 "year": "2024",
                 "rating": "PG • 7.8/10",
-                "stars": "Directed by Lianne Frost"
+                "stars": "Directed by Sam Tomorrow"
             }
         }
 
-        # Create 4 posters
-        self.create_poster(movie_frame, "Movie A")
-        self.create_poster(movie_frame, "Movie B")
-        self.create_poster(movie_frame, "Movie C")
-        self.create_poster(movie_frame, "Movie D")
+        # create 4 posters
+        for title in self.movie_data:
+            self.create_poster(movie_frame, title)
 
         tk.Button(
             self.window,
@@ -60,82 +62,96 @@ class CustomerHome:
     def create_poster(self, parent, movie_title):
         info = self.movie_data[movie_title]
 
-        # Canvas poster element
-        canvas = tk.Canvas(parent, width=150, height=220, bg="#cccccc", highlightthickness=0)
-        canvas.pack(side="left", padx=30)
+        canvas = tk.Canvas(
+            parent,
+            width=self.poster_width,
+            height=self.poster_height,
+            bg="#444444",
+            highlightthickness=0
+        )
+        canvas.pack(side="left", padx=self.poster_padding)
 
-        # Poster background (placeholder)
-        poster_rect = canvas.create_rectangle(0, 0, 150, 220, fill="#cccccc", outline="")
-        poster_text = canvas.create_text(
-            75, 110,
+        # base poster rectangle
+        canvas.create_rectangle(
+            0, 0, self.poster_width, self.poster_height,
+            fill="#dddddd",
+            outline=""
+        )
+
+        # placeholder title text
+        canvas.create_text(
+            self.poster_width // 2,
+            self.poster_height // 2,
             text=movie_title,
             fill="black",
-            font=("Arial", 12, "bold")
+            font=("Arial", 14, "bold")
         )
 
-        # Overlay elements
+        # ----- solid overlay -----
         overlay_rect = canvas.create_rectangle(
-            0, 0, 150, 220,
-            fill="black",
-            stipple="gray50",
+            0, 0, self.poster_width, self.poster_height,
+            fill="#111111",
+            outline="",
             state="hidden"
         )
 
-        overlay_title = canvas.create_text(
-            10, 20,
+        # overlay text items
+        title_text = canvas.create_text(
+            12, 20,
             text=info["title"],
             fill="white",
-            anchor="w",
-            font=("Arial", 11, "bold"),
+            anchor="nw",
+            font=("Arial", 12, "bold"),
             state="hidden"
         )
 
-        overlay_year = canvas.create_text(
-            10, 50,
+        year_text = canvas.create_text(
+            12, 50,
             text=info["year"],
             fill="white",
-            anchor="w",
+            anchor="nw",
             font=("Arial", 10),
             state="hidden"
         )
 
-        overlay_rating = canvas.create_text(
-            10, 80,
+        rating_text = canvas.create_text(
+            12, 75,
             text=info["rating"],
             fill="white",
-            anchor="w",
+            anchor="nw",
             font=("Arial", 10),
             state="hidden"
         )
 
-        overlay_stars = canvas.create_text(
-            10, 110,
+        stars_text = canvas.create_text(
+            12, 100,
             text=info["stars"],
             fill="white",
-            anchor="w",
+            anchor="nw",
             font=("Arial", 9),
             state="hidden"
         )
 
         overlay_items = [
-            overlay_rect, overlay_title, overlay_year, overlay_rating, overlay_stars
+            overlay_rect,
+            title_text,
+            year_text,
+            rating_text,
+            stars_text
         ]
 
-        # Mouse enter event
+        # hover functions
         def on_enter(event):
             for item in overlay_items:
                 canvas.itemconfigure(item, state="normal")
 
-        # Mouse exit event
         def on_leave(event):
             for item in overlay_items:
                 canvas.itemconfigure(item, state="hidden")
 
-        # Click event
-        def on_click(event):
-            self.open_showtimes(movie_title)
+        def on_click(event, t=movie_title):
+            self.open_showtimes(t)
 
-        # Bind events to poster
         canvas.bind("<Enter>", on_enter)
         canvas.bind("<Leave>", on_leave)
         canvas.bind("<Button-1>", on_click)
@@ -150,3 +166,8 @@ class CustomerHome:
 
     def run(self):
         self.window.mainloop()
+
+
+if __name__ == "__main__":
+    app = CustomerHome()
+    app.run()
