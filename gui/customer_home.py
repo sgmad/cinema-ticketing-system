@@ -1,10 +1,11 @@
 import tkinter as tk
 import tkinter.font as tkfont
-from PIL import Image, ImageTk # pip install pillow
+from PIL import Image, ImageTk
 import os
+from datetime import datetime, timedelta
 
-# Import database function
-from db.queries import get_all_movies
+# DB Imports
+from db.queries import get_movies_by_date
 from gui.admin_login import AdminLogin
 from gui.customer_showtime_select import CustomerShowtimeSelect
 
@@ -12,44 +13,110 @@ class CustomerHome:
     def __init__(self):
         self.window = tk.Tk()
         self.window.title("ScreenPass Movie List")
-        self.window.geometry("1100x700")
+        self.window.geometry("1100x750") # Made slightly taller for date bar
 
-        tk.Label(
-            self.window,
-            text="Now Showing",
-            font=("Arial", 24)
-        ).pack(pady=20)
+        # Header
+        tk.Label(self.window, text="Now Showing", font=("Arial", 24, "bold")).pack(pady=(20, 10))
 
-        # Poster layout settings
+        # =======================================================
+        # 1. DATE SELECTOR BAR
+        # =======================================================
+        self.date_frame = tk.Frame(self.window)
+        self.date_frame.pack(pady=10)
+
+        # Generate next 7 days
+        self.selected_date_btn = None
+        self.current_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Create buttons for the next 7 days
+        today = datetime.now()
+        for i in range(7):
+            date_obj = today + timedelta(days=i)
+            date_str = date_obj.strftime('%Y-%m-%d')
+            
+            # Format display text (e.g., "Mon\n30 Oct")
+            day_name = date_obj.strftime("%a")
+            day_num = date_obj.strftime("%d %b")
+            display_text = f"{day_name}\n{day_num}"
+
+            btn = tk.Button(
+                self.date_frame,
+                text=display_text,
+                width=8,
+                height=2,
+                relief="flat",
+                bg="#e0e0e0",
+                command=lambda d=date_str, b=i: self.select_date(d, b)
+            )
+            btn.pack(side="left", padx=5)
+            
+            # Save reference to button 0 (Today) so we can highlight it initially
+            if i == 0:
+                self.btn_today = btn
+
+        # =======================================================
+        # 2. MOVIE CONTAINER
+        # =======================================================
+        # We need a scrollable area in case there are many movies? 
+        # For now, let's keep it simple with a standard frame.
+        self.movie_frame = tk.Frame(self.window)
+        self.movie_frame.pack(pady=10, fill="both", expand=True)
+        
+        # Configuration for posters
         self.poster_width = 220
         self.poster_height = 330
         self.poster_padding = 28
+        self.images = [] # Prevent garbage collection
 
-        movie_frame = tk.Frame(self.window)
-        movie_frame.pack()
+        # Load "Today" by default
+        self.select_date(self.current_date, 0, btn_obj=self.btn_today)
 
-        # =======================================================
-        # Fetch real data from MySQL
-        # =======================================================
-        self.movies = get_all_movies() # Returns a list of dictionaries
+        # Admin Button at bottom
+        tk.Button(self.window, text="Admin Login", command=self.open_admin_login).pack(side="bottom", pady=20)
 
-        # If DB is empty
-        if not self.movies:
-            tk.Label(movie_frame, text="No movies found in database.").pack()
+    def select_date(self, date_str, index, btn_obj=None):
+        """ Handles visual highlighting of dates and data fetching """
+        self.current_date = date_str
+        
+        # Reset all buttons to gray
+        for widget in self.date_frame.winfo_children():
+            widget.configure(bg="#e0e0e0", fg="black")
 
-        # Create a poster for every movie found in the DB
-        for movie_dict in self.movies:
-            self.create_poster(movie_frame, movie_dict)
+        # Highlight the clicked button (or passed object)
+        if btn_obj:
+            target_btn = btn_obj
+        else:
+            # Find the button by index if object not passed
+            target_btn = self.date_frame.winfo_children()[index]
+            
+        target_btn.configure(bg="#2196F3", fg="white") # Blue active state
 
-        tk.Button(
-            self.window,
-            text="Admin Login",
-            command=self.open_admin_login
-        ).pack(side="bottom", pady=20)
+        # Refresh the movies
+        self.load_movies_for_date(date_str)
 
-    # =====================================================================
-    # Modified to accept a 'movie_dict' directly from DB
-    # =====================================================================
+    def load_movies_for_date(self, date_str):
+        """ Clears the screen and loads movies playing on date_str """
+        
+        # 1. Clear existing posters
+        for widget in self.movie_frame.winfo_children():
+            widget.destroy()
+        self.images = [] # Clear image cache
+
+        # 2. Fetch from DB
+        movies = get_movies_by_date(date_str)
+
+        if not movies:
+            tk.Label(
+                self.movie_frame, 
+                text=f"No showtimes scheduled for {date_str}", 
+                fg="gray", font=("Arial", 12)
+            ).pack(pady=50)
+            return
+
+        # 3. Create Posters
+        for movie_dict in movies:
+            self.create_poster(self.movie_frame, movie_dict)
+
     def create_poster(self, parent, movie):
         # movie is: {'id': 1, 'title': 'Test Movie', 'poster_path': '...', ...}
         
