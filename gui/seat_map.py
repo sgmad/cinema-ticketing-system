@@ -14,8 +14,18 @@ class SeatMap:
         """
         self.showtime = showtime_data
         self.window = tk.Toplevel()
+        
+        # DYNAMIC SIZING LOGIC
+        # Base size + (Pixels per button * count)
+        cols = self.showtime['total_cols']
+        rows = self.showtime['total_rows']
+        
+        # Rough math: 50px width per seat, 50px height per seat
+        width = max(800, cols * 60 + 100)  # Minimum 800px
+        height = max(700, rows * 60 + 200) # Minimum 700px
+        
+        self.window.geometry(f"{width}x{height}")
         self.window.title(f"Select Seats - {self.showtime['hall_name']}")
-        self.window.geometry("900x700")
         
         # Data Containers
         self.selected_seats = [] # List of tuples like ('A', 1)
@@ -36,7 +46,7 @@ class SeatMap:
         time_str = self.showtime['start_time'].strftime("%d %b, %I:%M %p")
         tk.Label(
             header_frame, 
-            text=f"{time_str}  •  ${self.showtime['price_standard']}/ticket", 
+            text=f"{time_str}  •  ₱{self.showtime['price_standard']}/ticket", 
             font=("Arial", 12)
         ).pack()
 
@@ -112,7 +122,7 @@ class SeatMap:
         )
         self.btn_confirm.pack(pady=10)
 
-        self.lbl_total = tk.Label(footer_frame, text="Total: $0.00", font=("Arial", 14, "bold"))
+        self.lbl_total = tk.Label(footer_frame, text="Total: ₱0.00", font=("Arial", 14, "bold"))
         self.lbl_total.pack()
 
     def create_legend_item(self, parent, color, text):
@@ -139,7 +149,7 @@ class SeatMap:
         count = len(self.selected_seats)
         total = count * float(self.showtime['price_standard'])
         
-        self.lbl_total.config(text=f"Total: ${total:.2f}")
+        self.lbl_total.config(text=f"Total: ₱{total:.2f}")
         
         if count > 0:
             self.btn_confirm.config(state="normal", text=f"Confirm {count} Tickets")
