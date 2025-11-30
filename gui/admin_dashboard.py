@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 from db.queries import get_all_movies, add_movie, delete_movie
 from gui.admin_scheduler import AdminScheduler
 from gui.admin_bookings import AdminBookings
+from gui.admin_halls import AdminHalls
 import shutil
 import os
 
@@ -83,6 +84,14 @@ class AdminDashboard:
             bg="#FF9800", fg="white", 
             height=2,
             command=self.open_bookings
+        ).pack(fill="x", pady=(5, 0))
+
+        tk.Button(
+            frame_form, 
+            text="🏛 Manage Halls", 
+            bg="#607D8B", fg="white", 
+            height=2,
+            command=lambda: AdminHalls().run()
         ).pack(fill="x", pady=(5, 0))
 
         # ==========================================
