@@ -93,7 +93,7 @@ class CustomerHome:
                 self.create_day_section(display_date, movies)
 
     def create_day_section(self, date_text, movies):
-        """ Creates a header and a row of posters for a specific day """
+        """ Creates a header and a GRID of posters for a specific day """
         parent = self.scroll_container.scroll_window
         
         # 1. Date Header
@@ -107,21 +107,27 @@ class CustomerHome:
         )
         header.pack(fill="x", padx=20, pady=(20, 10))
         
-        # 2. Horizontal Row for Posters
-        # We use a frame to hold the posters side-by-side
+        # 2. Poster Container
         row_frame = tk.Frame(parent, bg="#f0f0f0")
         row_frame.pack(fill="x", padx=20)
 
-        for movie in movies:
-            self.create_poster(row_frame, movie)
+        # ---------------------------------------------------------
+        # GRID LOGIC: 5 Posters per row, then wrap
+        # ---------------------------------------------------------
+        columns_per_row = 5 
+        
+        for index, movie in enumerate(movies):
+            # Calculate grid position
+            row_pos = index // columns_per_row
+            col_pos = index % columns_per_row
+            
+            # Pass these coordinates to the poster creator
+            self.create_poster(row_frame, movie, row_pos, col_pos)
             
         # Divider Line
         tk.Frame(parent, height=1, bg="#ccc").pack(fill="x", pady=20, padx=20)
 
-    def create_poster(self, parent, movie):
-        # ----------------------------------------------------
-        # Same logic as before, but attached to 'parent' (the row)
-        # ----------------------------------------------------
+    def create_poster(self, parent, movie, r, c):
         canvas = tk.Canvas(
             parent,
             width=self.poster_width,
@@ -129,32 +135,27 @@ class CustomerHome:
             bg="#444",
             highlightthickness=0
         )
-        canvas.pack(side="left", padx=(0, self.poster_padding))
+        
+        # CHANGE: Use Grid instead of Pack
+        canvas.grid(row=r, column=c, padx=10, pady=10)
 
-        # Image Loading
+        # Image Loading (Same as before)
         image_path = movie.get('poster_path', 'assets/sample_posters/default.png')
         if not os.path.exists(image_path):
-             # Try to find absolute path if relative fails
              image_path = os.path.abspath(image_path)
              
         try:
             img = Image.open(image_path)
             img = img.resize((self.poster_width, self.poster_height), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
-            self.images.append(photo) # Keep reference!
+            self.images.append(photo) 
             canvas.create_image(0, 0, anchor="nw", image=photo)
         except Exception as e:
             canvas.create_rectangle(0, 0, self.poster_width, self.poster_height, fill="#dddddd")
             canvas.create_text(self.poster_width//2, self.poster_height//2, text=movie['title'], width=180)
 
-        # Basic click event
+        # Click event
         canvas.bind("<Button-1>", lambda e: self.open_showtimes(movie))
-        
-        # Optional: Add simple title label below poster
-        # lbl = tk.Label(parent, text=movie['title'], font=("Arial", 10), wraplength=self.poster_width, bg="#f0f0f0")
-        # lbl.pack(side="left") 
-        # (Note: Packing a label below a canvas in a horizontal row is tricky without another frame, 
-        # keeping it simple with just the poster click for now)
 
     def open_showtimes(self, movie_dict):
         # CHANGE: Pass the whole dictionary, not just the title

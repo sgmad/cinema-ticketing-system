@@ -81,7 +81,7 @@ class ReceiptWindow:
         ).pack(side="bottom", pady=(0, 10))
 
     def print_receipt(self):
-        """ Simulates printing by outputting text to the console """
+        """ "Printing" by outputting text to the console """
         print("\n" + "="*40)
         print("       SCREENPASS CINEMAS RECEIPT       ")
         print("="*40)
