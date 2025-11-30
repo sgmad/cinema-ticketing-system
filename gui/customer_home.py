@@ -53,72 +53,48 @@ class CustomerHome:
         self.window.configure(bg=BG_COLOR)
 
         # ---------------------------------------------------------
-        # THE SCROLLBAR STYLING ENGINE
+        # SCROLLBAR STYLE
         # ---------------------------------------------------------
         style = ttk.Style()
         style.theme_use('clam') 
-        
         style.configure("Dark.Vertical.TScrollbar",
-            gripcount=0,
-            background="#333333",       
-            darkcolor=BG_COLOR,         
-            lightcolor=BG_COLOR,        
-            troughcolor=BG_COLOR,       
-            bordercolor=BG_COLOR,
-            arrowcolor="white"
+            gripcount=0, background="#333333", darkcolor=BG_COLOR, lightcolor=BG_COLOR,
+            troughcolor=BG_COLOR, bordercolor=BG_COLOR, arrowcolor="white"
         )
-        
-        style.map("Dark.Vertical.TScrollbar",
-            background=[("active", ACCENT), ("pressed", ACCENT_DARK)]
-        )
+        style.map("Dark.Vertical.TScrollbar", background=[("active", ACCENT), ("pressed", ACCENT_DARK)])
 
-        # ---------------------------------------------------------
-        # DARK TITLE BAR HACK
-        # ---------------------------------------------------------
+        # Dark Title Bar
         try:
             self.window.update()
-            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
             set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
             get_parent = ctypes.windll.user32.GetParent
             hwnd = get_parent(self.window.winfo_id())
-            rendering_policy = DWMWA_USE_IMMERSIVE_DARK_MODE
-            value = 2
-            value = ctypes.c_int(value)
-            set_window_attribute(hwnd, rendering_policy, ctypes.byref(value), ctypes.sizeof(value))
-        except:
-            pass
+            value = ctypes.c_int(2)
+            set_window_attribute(hwnd, 20, ctypes.byref(value), ctypes.sizeof(value))
+        except: pass
 
         try:
             self.window.state('zoomed') 
         except:
             self.window.geometry("1400x900")
 
-        # =========================================================
-        # 1. HEADER SECTION
-        # =========================================================
+        # 1. HEADER
         header_frame = tk.Frame(self.window, bg=HEADER_BG, pady=20, padx=40)
         header_frame.pack(fill="x")
-        
         tk.Frame(self.window, bg=ACCENT, height=2).pack(fill="x")
 
-        # LOGO AREA
         logo_frame = tk.Frame(header_frame, bg=HEADER_BG)
         logo_frame.pack(side="left")
-
         tk.Label(logo_frame, text="Screen", font=("Helvetica", 26, "bold"), fg=TEXT_MAIN, bg=HEADER_BG).pack(side="left")
         tk.Label(logo_frame, text="Pass", font=("Helvetica", 26, "bold"), fg=ACCENT, bg=HEADER_BG).pack(side="left")
 
-        # Controls
         btn_frame = tk.Frame(header_frame, bg=HEADER_BG)
         btn_frame.pack(side="right")
-
         self.create_header_btn(btn_frame, "🔄 Refresh", self.load_week_view)
         tk.Frame(btn_frame, width=20, bg=HEADER_BG).pack(side="left") 
         self.create_header_btn(btn_frame, "Admin Portal", self.open_admin_login, is_primary=True)
 
-        # =========================================================
-        # 2. CONTENT AREA
-        # =========================================================
+        # 2. CONTENT
         self.scroll_container = ScrollableFrame(self.window)
         self.scroll_container.pack(fill="both", expand=True)
 
@@ -134,33 +110,33 @@ class CustomerHome:
         fg = "#000000" if is_primary else TEXT_MAIN
         
         btn = tk.Button(
-            parent, 
-            text=text, font=("Helvetica", 11, "bold"),
-            bg=bg, fg=fg, 
-            activebackground=ACCENT_DARK, activeforeground=TEXT_MAIN,
-            padx=20, pady=8, relief="flat", cursor="hand2",
-            command=command
+            parent, text=text, font=("Helvetica", 11, "bold"),
+            bg=bg, fg=fg, activebackground=ACCENT_DARK, activeforeground=TEXT_MAIN,
+            padx=20, pady=8, relief="flat", cursor="hand2", command=command
         )
         btn.pack(side="left")
-
         def on_enter(e): btn.config(bg=ACCENT_DARK, fg=TEXT_MAIN)
         def on_leave(e): btn.config(bg=bg, fg=fg)
         btn.bind("<Enter>", on_enter)
         btn.bind("<Leave>", on_leave)
 
     def load_week_view(self):
-        """ Clears the screen and reloads the schedule """
         for widget in self.scroll_container.scroll_window.winfo_children():
             widget.destroy()
         self.images = []
 
         today = datetime.now()
         
-        # CHANGED: Loop 14 times instead of 7
+        print("Rendering Schedule...")
+        
+        # LOOP FOR 14 DAYS
         for i in range(14): 
             date_obj = today + timedelta(days=i)
             date_str = date_obj.strftime('%Y-%m-%d')
             display_date = date_obj.strftime("%A, %d %B") 
+            
+            # Debug print to verify loop runs 14 times
+            # print(f"Checking schedule for Day {i+1}: {date_str}")
             
             movies = get_movies_by_date(date_str)
             
@@ -170,23 +146,15 @@ class CustomerHome:
     def create_day_section(self, date_text, movies):
         parent = self.scroll_container.scroll_window
         
-        # 1. Date Header
         header_container = tk.Frame(parent, bg=BG_COLOR, pady=10)
         header_container.pack(fill="x", pady=(30, 10), padx=20) 
-        
         tk.Frame(header_container, bg=ACCENT, width=5, height=30).pack(side="left")
+        tk.Label(header_container, text=f"  {date_text}", font=("Helvetica", 18, "bold"), fg=TEXT_MAIN, bg=BG_COLOR).pack(side="left")
         
-        tk.Label(
-            header_container, text=f"  {date_text}",
-            font=("Helvetica", 18, "bold"), fg=TEXT_MAIN, bg=BG_COLOR
-        ).pack(side="left")
-        
-        # 2. Grid
         grid_frame = tk.Frame(parent, bg=BG_COLOR)
         grid_frame.pack(fill="x", padx=20)
 
         columns_per_row = 6 
-        
         for index, movie in enumerate(movies):
             r = index // columns_per_row
             c = index % columns_per_row
@@ -208,12 +176,22 @@ class CustomerHome:
         except:
             canvas.create_text(self.poster_width//2, self.poster_height//2, text=movie['title'], width=180, font=("Helvetica", 10, "bold"), fill=TEXT_MAIN)
 
-        # OVERLAY LOGIC
+        # =========================================================
+        # CORRECTED OVERLAY LOGIC
+        # =========================================================
         overlay_rect = canvas.create_rectangle(0, 0, self.poster_width, self.poster_height, fill="#0a0a0a", outline=ACCENT, width=2, state="hidden")
         pad = 16
         
         overlay_title = canvas.create_text(pad, 30, text=movie['title'], fill=TEXT_MAIN, anchor="nw", font=("Helvetica", 13, "bold"), width=self.poster_width - (pad*2), state="hidden")
-        overlay_meta = canvas.create_text(pad, 90, text=f"★ {movie.get('rating', 'N/A')}\n🕑 {movie.get('duration_minutes', 0)} mins", fill=ACCENT, anchor="nw", font=("Helvetica", 10, "bold"), state="hidden")
+        
+        # DATA FIX: Use 'imdb_rating' for the Star, 'rating' for the MPAA Badge
+        user_rating = movie.get('imdb_rating', '★ -/10')
+        mpaa_rating = movie.get('rating', 'NR')
+        duration = f"{movie.get('duration_minutes', 0)}m"
+        
+        meta_text = f"{user_rating}  |  {mpaa_rating}\n🕑 {duration}"
+        
+        overlay_meta = canvas.create_text(pad, 90, text=meta_text, fill=ACCENT, anchor="nw", font=("Helvetica", 10, "bold"), state="hidden")
         
         desc = movie.get('description', '')
         if len(desc) > 120: desc = desc[:120] + "..."
