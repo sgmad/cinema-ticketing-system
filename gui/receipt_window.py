@@ -53,7 +53,7 @@ class ReceiptWindow:
         self.seat_str = ", ".join([f"{r}{n}" for r, n in seats])
         add_row("Seats:", self.seat_str)
         
-        add_row("Total Paid:", f"${total:.2f}")
+        add_row("Total Paid:", f"₱{total:.2f}")
 
         # Divider
         tk.Frame(self.window, height=2, bg="#eee").pack(fill="x", padx=20, pady=20)
@@ -92,7 +92,7 @@ class ReceiptWindow:
         print(f"Hall       : {self.hall_name}")
         print(f"Seats      : {self.seat_str}")
         print("-" * 40)
-        print(f"TOTAL PAID : ${self.total:.2f}")
+        print(f"TOTAL PAID : ₱{self.total:.2f}")
         print("="*40 + "\n")
         
         messagebox.showinfo("Printer", "Receipt sent to console printer!")
