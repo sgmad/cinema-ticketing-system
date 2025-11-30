@@ -1,0 +1,6 @@
+mysql-connector-python
+requests
+Pillow
+tkcalendar
+
+pip install -r requirements.txt
