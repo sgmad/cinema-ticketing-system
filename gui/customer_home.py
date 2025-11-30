@@ -1,7 +1,12 @@
 import tkinter as tk
+import tkinter.font as tkfont
+from PIL import Image, ImageTk # pip install pillow
+import os
+
+# Import database function
+from db.queries import get_all_movies
 from gui.admin_login import AdminLogin
 from gui.customer_showtime_select import CustomerShowtimeSelect
-import tkinter.font as tkfont
 
 class CustomerHome:
     def __init__(self):
@@ -15,7 +20,7 @@ class CustomerHome:
             font=("Arial", 24)
         ).pack(pady=20)
 
-        # Poster layout BIG
+        # Poster layout settings
         self.poster_width = 220
         self.poster_height = 330
         self.poster_padding = 28
@@ -23,37 +28,18 @@ class CustomerHome:
         movie_frame = tk.Frame(self.window)
         movie_frame.pack()
 
-        # Made up movie data starring mah frens
-        self.movie_data = {
-            "Movie A": {
-                "title": "Movie A",
-                "year": "2025",
-                "rating": "PG-13 • 8.2/10",
-                "stars": "Starring Kyle Guadz and Aubreng Olario"
-            },
-            "Movie B": {
-                "title": "Movie B",
-                "year": "2025",
-                "rating": "R • 7.5/10",
-                "stars": "Starring James Homer and Kyle Adz"
-            },
-            "Movie C": {
-                "title": "Movie C",
-                "year": "2025",
-                "rating": "PG • 6.9/10",
-                "stars": "Starring Jonathan Manigs and Steven Deliverables"
-            },
-            "Movie D": {
-                "title": "Movie D",
-                "year": "2025",
-                "rating": "PG • 7.8/10",
-                "stars": "Directed by Sam Ugmad"
-            }
-        }
+        # =======================================================
+        # Fetch real data from MySQL
+        # =======================================================
+        self.movies = get_all_movies() # Returns a list of dictionaries
 
-        # Creates the 4 posters
-        for title in self.movie_data:
-            self.create_poster(movie_frame, title)
+        # If DB is empty
+        if not self.movies:
+            tk.Label(movie_frame, text="No movies found in database.").pack()
+
+        # Create a poster for every movie found in the DB
+        for movie_dict in self.movies:
+            self.create_poster(movie_frame, movie_dict)
 
         tk.Button(
             self.window,
@@ -62,11 +48,11 @@ class CustomerHome:
         ).pack(side="bottom", pady=20)
 
     # =====================================================================
-    # Poster creation
+    # Modified to accept a 'movie_dict' directly from DB
     # =====================================================================
-    def create_poster(self, parent, movie_title):
-        info = self.movie_data[movie_title]
-
+    def create_poster(self, parent, movie):
+        # movie is: {'id': 1, 'title': 'Test Movie', 'poster_path': '...', ...}
+        
         canvas = tk.Canvas(
             parent,
             width=self.poster_width,
@@ -76,88 +62,81 @@ class CustomerHome:
         )
         canvas.pack(side="left", padx=self.poster_padding)
 
-        # Poster placeholder rectangle
-        canvas.create_rectangle(
-            0, 0, self.poster_width, self.poster_height,
-            fill="#dddddd",
-            outline=""
-        )
+        # ---------------------------------------------------------
+        # IMAGE LOADING LOGIC
+        # ---------------------------------------------------------
+        # Tkinter requires keeping a reference to images or garbage collector deletes them
+        if not hasattr(self, 'images'):
+            self.images = []
 
-        # Centered placeholder title text
-        canvas.create_text(
-            self.poster_width // 2,
-            self.poster_height // 2,
-            text=movie_title,
-            fill="black",
-            font=("Arial", 16, "bold")
-        )
+        image_path = movie.get('poster_path', 'assets/sample_posters/default.png')
+        
+        # Fallback if file doesn't exist
+        if not os.path.exists(image_path):
+            print(f"Warning: Image not found at {image_path}")
+            # You could set a default placeholder here if you wanted
+        
+        try:
+            # Load and Resize Image to fit poster size
+            img = Image.open(image_path)
+            img = img.resize((self.poster_width, self.poster_height), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+            
+            # Keep reference
+            self.images.append(photo)
+            
+            # Draw Image
+            canvas.create_image(0, 0, anchor="nw", image=photo)
+        except Exception as e:
+            print(f"Error loading image: {e}")
+            # Draw gray rectangle if image fails
+            canvas.create_rectangle(0, 0, self.poster_width, self.poster_height, fill="#dddddd")
 
-        # ===============================================================================
-        # Solid overlay because tkinter can't do semi-transparent colors (Install PyQt5?)
-        # ===============================================================================
+        # ---------------------------------------------------------
+        # OVERLAY LOGIC (Same as before, just using dictionary keys)
+        # ---------------------------------------------------------
         overlay_rect = canvas.create_rectangle(
             0, 0, self.poster_width, self.poster_height,
-            fill="#111111",
-            outline="",
-            state="hidden"
+            fill="#111111", outline="", state="hidden"
         )
 
-        # Padding for overlay text
         padding_left = 16
-
+        
         # Title
         overlay_title = canvas.create_text(
             padding_left, 30,
-            text=info["title"],
-            fill="white",
-            anchor="nw",
-            font=("Arial", 14, "bold"),
-            state="hidden"
+            text=movie['title'],
+            fill="white", anchor="nw",
+            font=("Arial", 14, "bold"), state="hidden"
         )
 
-        # Year just below title
-        overlay_year = canvas.create_text(
-            padding_left, 65,
-            text=info["year"],
-            fill="white",
-            anchor="nw",
-            font=("Arial", 12),
-            state="hidden"
-        )
-
-        # Rating
+        # Rating / Duration
         overlay_rating = canvas.create_text(
-            padding_left, 95,
-            text=info["rating"],
-            fill="white",
-            anchor="nw",
-            font=("Arial", 12),
-            state="hidden"
+            padding_left, 65,
+            text=f"{movie['rating']} • {movie['duration_minutes']}m",
+            fill="white", anchor="nw",
+            font=("Arial", 12), state="hidden"
         )
 
-        # Stars text, but wrapped manually
-        stars_lines = self.wrap_text(info["stars"], max_width=self.poster_width - 2 * padding_left, font=("Arial", 11))
-
-        overlay_stars_items = []
-        stars_y = 130
-        for line in stars_lines:
+        # Description (Wrapped)
+        desc_text = movie.get('description', 'No description')
+        desc_lines = self.wrap_text(desc_text, self.poster_width - 2 * padding_left)
+        
+        overlay_desc_items = []
+        y_pos = 100
+        for line in desc_lines[:8]: # Limit to 8 lines so it doesn't overflow
             item = canvas.create_text(
-                padding_left, stars_y,
+                padding_left, y_pos,
                 text=line,
-                fill="white",
-                anchor="nw",
-                font=("Arial", 11),
-                state="hidden"
+                fill="#cccccc", anchor="nw",
+                font=("Arial", 10), state="hidden"
             )
-            overlay_stars_items.append(item)
-            stars_y += 20
+            overlay_desc_items.append(item)
+            y_pos += 18
 
-        # Items to show or hide on hover
-        overlay_items = [overlay_rect, overlay_title, overlay_year, overlay_rating] + overlay_stars_items
+        overlay_items = [overlay_rect, overlay_title, overlay_rating] + overlay_desc_items
 
-        # =================================================================
-        # Hover logic
-        # =================================================================
+        # Hover Bindings
         def on_enter(event):
             for it in overlay_items:
                 canvas.itemconfigure(it, state="normal")
@@ -166,46 +145,34 @@ class CustomerHome:
             for it in overlay_items:
                 canvas.itemconfigure(it, state="hidden")
 
-        def on_click(event, t=movie_title):
-            self.open_showtimes(t)
+        # Click Binding - Pass the Movie ID now!
+        def on_click(event):
+            self.open_showtimes(movie)
 
-        # Hover and click binding
         canvas.bind("<Enter>", on_enter)
         canvas.bind("<Leave>", on_leave)
         canvas.bind("<Button-1>", on_click)
 
-    # ==================================
-    # Basic word wrap using font.measure
-    # ==================================
-    def wrap_text(self, text, max_width, font=("Arial", 11)):
-        """
-        Wrap text to fit within max_width using a tkinter Font measurement.
-        Returns a list of lines that fit.
-        """
+    def wrap_text(self, text, max_width, font=("Arial", 10)):
         f = tkfont.Font(font=font)
         words = text.split()
         lines = []
         current = ""
-
         for word in words:
-            test_line = current + (" " if current else "") + word
-            if f.measure(test_line) <= max_width:
-                current = test_line
+            test = current + " " + word if current else word
+            if f.measure(test) <= max_width:
+                current = test
             else:
-                if current:
-                    lines.append(current)
+                lines.append(current)
                 current = word
-
-        if current:
-            lines.append(current)
-
+        if current: lines.append(current)
         return lines
 
-    # =====================================================================
-    # Navigation
-    # =====================================================================
-    def open_showtimes(self, movie_title):
-        screen = CustomerShowtimeSelect(movie_title)
+    def open_showtimes(self, movie_dict):
+        # We pass the WHOLE dictionary now, not just title
+        print(f"Opening showtimes for: {movie_dict['title']} (ID: {movie_dict['id']})")
+        # You will need to update CustomerShowtimeSelect next!
+        screen = CustomerShowtimeSelect(movie_dict['title']) 
         screen.run()
 
     def open_admin_login(self):
@@ -214,7 +181,6 @@ class CustomerHome:
 
     def run(self):
         self.window.mainloop()
-
 
 if __name__ == "__main__":
     app = CustomerHome()
