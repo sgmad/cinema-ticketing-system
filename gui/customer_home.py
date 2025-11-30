@@ -2,6 +2,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from PIL import Image, ImageTk
 import os
+import ctypes # KEY IMPORT: Allows us to talk to Windows API
 from datetime import datetime, timedelta
 
 # DB Imports
@@ -9,23 +10,26 @@ from db.queries import get_movies_by_date
 from gui.admin_login import AdminLogin
 from gui.customer_showtime_select import CustomerShowtimeSelect
 
-# COLOR PALETTE (Cinema Dark Mode)
-BG_COLOR = "#121212"       # Deep Background
+# =========================================================
+# DESIGN SYSTEM: "Cyberpunk Violet"
+# =========================================================
+BG_COLOR = "#121212"       # Deepest Black
+SURFACE_COLOR = "#1E1E1E"  # Card Backgrounds
 HEADER_BG = "#000000"      # Pure Black Header
-DATE_BG = "#1f1f1f"        # Dark Gray for Date Strips
-TEXT_MAIN = "#FFFFFF"      # White Text
-TEXT_SUB = "#AAAAAA"       # Gray Text
-ACCENT = "#E50914"         # Netflix/Cinema Red
+TEXT_MAIN = "#FFFFFF"      # High Emphasis
+TEXT_SUB = "#B3B3B3"       # Medium Emphasis
+ACCENT = "#BB86FC"         # Aesthetic Light Purple (Material Design)
+ACCENT_DARK = "#3700B3"    # Darker Purple for interactions
 
 class ScrollableFrame(tk.Frame):
     """ A helper class to create a scrollable container """
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
         
-        # Update colors for dark mode
         self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0, bg=BG_COLOR)
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         
+        # Tweak: Set scrollbar colors if possible (Windows ignores this mostly, but good practice)
         self.scroll_window = tk.Frame(self.canvas, bg=BG_COLOR)
 
         self.scroll_window.bind(
@@ -48,83 +52,101 @@ class CustomerHome:
     def __init__(self):
         self.window = tk.Tk()
         self.window.title("ScreenPass Cinemas")
-        
-        # 1. START MAXIMIZED / LARGER
-        # Try to use the Windows 'zoomed' state, fallback to size if on other OS
+        self.window.configure(bg=BG_COLOR)
+
+        # ---------------------------------------------------------
+        # THE "PRO TRICK": FORCE WINDOWS DARK TITLE BAR
+        # ---------------------------------------------------------
+        try:
+            # Tell Windows DWM (Desktop Window Manager) to use Dark Mode (Attribute 20)
+            self.window.update()
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
+            get_parent = ctypes.windll.user32.GetParent
+            hwnd = get_parent(self.window.winfo_id())
+            rendering_policy = DWMWA_USE_IMMERSIVE_DARK_MODE
+            value = 2 # 2 = Force Dark Mode
+            value = ctypes.c_int(value)
+            set_window_attribute(hwnd, rendering_policy, ctypes.byref(value), ctypes.sizeof(value))
+        except:
+            pass # Fails silently on Mac/Linux or older Windows, which is fine.
+
+        # Maximize
         try:
             self.window.state('zoomed') 
         except:
             self.window.geometry("1400x900")
-            
-        self.window.configure(bg=BG_COLOR)
 
         # =========================================================
-        # 2. HEADER SECTION
+        # 1. HEADER SECTION
         # =========================================================
-        header_frame = tk.Frame(self.window, bg=HEADER_BG, pady=15, padx=30)
+        header_frame = tk.Frame(self.window, bg=HEADER_BG, pady=20, padx=40)
         header_frame.pack(fill="x")
         
-        # Red Accent Line
+        # Aesthetic Purple Gradient Line (Simulated with Frame)
         tk.Frame(self.window, bg=ACCENT, height=2).pack(fill="x")
 
-        # Brand
+        # LOGO AREA
+        logo_frame = tk.Frame(header_frame, bg=HEADER_BG)
+        logo_frame.pack(side="left")
+
+        # "Screen" in White, "Pass" in Purple
         tk.Label(
-            header_frame, 
-            text="ScreenPass", 
-            font=("Helvetica", 24, "bold"), 
-            fg=ACCENT, bg=HEADER_BG
+            logo_frame, text="Screen", font=("Helvetica", 26, "bold"), 
+            fg=TEXT_MAIN, bg=HEADER_BG
         ).pack(side="left")
         
         tk.Label(
-            header_frame, 
-            text="Cinemas", 
-            font=("Helvetica", 24), 
-            fg=TEXT_MAIN, bg=HEADER_BG
-        ).pack(side="left", padx=5)
+            logo_frame, text="Pass", font=("Helvetica", 26, "bold"), 
+            fg=ACCENT, bg=HEADER_BG
+        ).pack(side="left")
 
-        # Right Side Controls
+        # Right Side Controls (Styled Buttons)
         btn_frame = tk.Frame(header_frame, bg=HEADER_BG)
         btn_frame.pack(side="right")
 
-        # Refresh
-        tk.Button(
-            btn_frame, 
-            text="🔄 Refresh", 
-            font=("Helvetica", 10),
-            bg="#333", fg="white", 
-            activebackground="#444", activeforeground="white",
-            padx=10, pady=5, relief="flat",
-            command=self.load_week_view
-        ).pack(side="left", padx=10)
-
-        # Admin
-        tk.Button(
-            btn_frame, 
-            text="Admin Access", 
-            font=("Helvetica", 10, "bold"),
-            bg="#333", fg="white", 
-            activebackground="#444", activeforeground="white",
-            padx=15, pady=5, relief="flat",
-            command=self.open_admin_login
-        ).pack(side="left")
+        self.create_header_btn(btn_frame, "🔄 Refresh", self.load_week_view)
+        tk.Frame(btn_frame, width=20, bg=HEADER_BG).pack(side="left") # Spacer
+        self.create_header_btn(btn_frame, "Admin Portal", self.open_admin_login, is_primary=True)
 
         # =========================================================
-        # 3. SCROLLABLE CONTENT AREA
+        # 2. CONTENT AREA
         # =========================================================
         self.scroll_container = ScrollableFrame(self.window)
         self.scroll_container.pack(fill="both", expand=True)
 
-        self.poster_width = 200
-        self.poster_height = 300
-        self.poster_padding = 10
+        self.poster_width = 220
+        self.poster_height = 330
+        self.poster_padding = 15
         self.images = [] 
 
-        # Load Data
         self.load_week_view()
 
+    def create_header_btn(self, parent, text, command, is_primary=False):
+        """ Helper to create consistent, styled buttons """
+        bg = ACCENT if is_primary else "#333333"
+        fg = "#000000" if is_primary else TEXT_MAIN
+        
+        btn = tk.Button(
+            parent, 
+            text=text, 
+            font=("Helvetica", 11, "bold"),
+            bg=bg, fg=fg, 
+            activebackground=ACCENT_DARK, activeforeground=TEXT_MAIN,
+            padx=20, pady=8, 
+            relief="flat",
+            cursor="hand2", # Change cursor to hand on hover
+            command=command
+        )
+        btn.pack(side="left")
+
+        # Hover Animation Logic
+        def on_enter(e): btn.config(bg=ACCENT_DARK, fg=TEXT_MAIN)
+        def on_leave(e): btn.config(bg=bg, fg=fg)
+        btn.bind("<Enter>", on_enter)
+        btn.bind("<Leave>", on_leave)
+
     def load_week_view(self):
-        """ Clears the screen and reloads the schedule """
-        # Clear existing widgets
         for widget in self.scroll_container.scroll_window.winfo_children():
             widget.destroy()
         self.images = []
@@ -144,27 +166,27 @@ class CustomerHome:
     def create_day_section(self, date_text, movies):
         parent = self.scroll_container.scroll_window
         
-        # 1. Date Header (Dark Strip)
-        header_container = tk.Frame(parent, bg=DATE_BG, pady=8, padx=20)
-        header_container.pack(fill="x", pady=(20, 15))
+        # 1. Date Header
+        # Using a left-border accent to make it look technical/modern
+        header_container = tk.Frame(parent, bg=BG_COLOR, pady=10)
+        header_container.pack(fill="x", pady=(30, 10), padx=30)
         
-        # Date Text
+        # The Purple Accent Bar
+        tk.Frame(header_container, bg=ACCENT, width=5, height=30).pack(side="left")
+        
+        # The Date Text
         tk.Label(
             header_container, 
-            text=date_text, 
-            font=("Helvetica", 16, "bold"), 
-            fg=TEXT_MAIN,
-            bg=DATE_BG,
-            anchor="w"
-        ).pack(fill="x")
+            text=f"  {date_text}", # padding space
+            font=("Helvetica", 18, "bold"), 
+            fg=TEXT_MAIN, bg=BG_COLOR
+        ).pack(side="left")
         
-        # 2. Grid Container
+        # 2. Grid
         grid_frame = tk.Frame(parent, bg=BG_COLOR)
-        grid_frame.pack(fill="x", padx=30)
+        grid_frame.pack(fill="x", padx=40)
 
-        # ---------------------------------------------------------
-        # GRID LOGIC: 6 Posters per row (Side by Side)
-        # ---------------------------------------------------------
+        # 6 Columns for widescreen goodness
         columns_per_row = 6 
         
         for index, movie in enumerate(movies):
@@ -173,20 +195,19 @@ class CustomerHome:
             self.create_poster(grid_frame, movie, r, c)
 
     def create_poster(self, parent, movie, r, c):
-        # Canvas for Image
+        # Canvas
         canvas = tk.Canvas(
             parent,
             width=self.poster_width,
             height=self.poster_height,
-            bg="#222", 
+            bg=SURFACE_COLOR, 
             highlightthickness=0
         )
         canvas.grid(row=r, column=c, padx=self.poster_padding, pady=self.poster_padding)
 
-        # Image Loading
+        # Image
         image_path = movie.get('poster_path', 'assets/sample_posters/default.png')
-        if not os.path.exists(image_path):
-             image_path = os.path.abspath(image_path)
+        if not os.path.exists(image_path): image_path = os.path.abspath(image_path)
              
         try:
             img = Image.open(image_path)
@@ -197,72 +218,66 @@ class CustomerHome:
         except:
             canvas.create_text(
                 self.poster_width//2, self.poster_height//2, 
-                text=movie['title'], width=180, font=("Helvetica", 10, "bold"), fill="white"
+                text=movie['title'], width=180, font=("Helvetica", 10, "bold"), fill=TEXT_MAIN
             )
 
-        # ===============================================================================
-        # THE DARK OVERLAY LOGIC (RESTORED & IMPROVED)
-        # ===============================================================================
+        # =================================================================
+        # HOVER OVERLAY (Purple Theme)
+        # =================================================================
         
-        # 1. Solid Dark Overlay (Initially Hidden)
+        # 1. Dark Overlay (90% Opacity simulation)
         overlay_rect = canvas.create_rectangle(
             0, 0, self.poster_width, self.poster_height,
-            fill="#111111", # Very dark gray
-            outline="",
+            fill="#0a0a0a", # Almost black
+            outline=ACCENT, # Purple Border!
+            width=2,
             state="hidden"
         )
 
-        padding_left = 14
+        pad = 16
         
-        # 2. Title (White, Bold)
+        # 2. Title
         overlay_title = canvas.create_text(
-            padding_left, 30,
+            pad, 30,
             text=movie['title'],
-            fill="#FFFFFF",
-            anchor="nw",
-            font=("Helvetica", 14, "bold"),
-            width=self.poster_width - 20,
+            fill=TEXT_MAIN, anchor="nw",
+            font=("Helvetica", 13, "bold"),
+            width=self.poster_width - (pad*2),
             state="hidden"
         )
 
-        # 3. Rating / Duration (Red Accent)
+        # 3. Meta Data (Purple Accent)
         overlay_meta = canvas.create_text(
-            padding_left, 80,
-            text=f"{movie.get('rating', 'N/A')} • {movie.get('duration_minutes', 0)}m",
-            fill=ACCENT, 
-            anchor="nw",
+            pad, 90,
+            text=f"★ {movie.get('rating', 'N/A')}\n🕑 {movie.get('duration_minutes', 0)} mins",
+            fill=ACCENT, anchor="nw",
             font=("Helvetica", 10, "bold"),
             state="hidden"
         )
 
-        # 4. Description (Wrapped Text)
-        desc_text = movie.get('description', 'No synopsis available.')
-        # Helper to wrap text for canvas
+        # 4. Synopsis
+        desc = movie.get('description', '')
+        if len(desc) > 120: desc = desc[:120] + "..." # Truncate nicely
+        
         overlay_desc = canvas.create_text(
-            padding_left, 110,
-            text=desc_text,
-            fill="#CCCCCC",
-            anchor="nw",
+            pad, 135,
+            text=desc,
+            fill="#CCCCCC", anchor="nw",
             font=("Helvetica", 9),
-            width=self.poster_width - 25, # Wrap text
+            width=self.poster_width - (pad*2),
             state="hidden"
         )
 
-        # List of items to toggle
         overlay_items = [overlay_rect, overlay_title, overlay_meta, overlay_desc]
 
-        # =================================================================
-        # HOVER BINDINGS
-        # =================================================================
-        def on_enter(event):
-            for it in overlay_items:
-                canvas.itemconfigure(it, state="normal")
+        # Bindings
+        def on_enter(e):
+            for it in overlay_items: canvas.itemconfigure(it, state="normal")
+            
+        def on_leave(e):
+            for it in overlay_items: canvas.itemconfigure(it, state="hidden")
 
-        def on_leave(event):
-            for it in overlay_items:
-                canvas.itemconfigure(it, state="hidden")
-
-        def on_click(event):
+        def on_click(e):
             self.open_showtimes(movie)
 
         canvas.bind("<Enter>", on_enter)
