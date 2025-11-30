@@ -119,8 +119,8 @@ class CustomerShowtimeSelect:
                 hall_name = show['hall_name']
                 price = show['price_standard']
                 
-                # Button Text: "02:30 PM\nCinema 1 ($12.50)"
-                btn_text = f"{time_str}\n{hall_name} (${price})"
+                # Button Text: "02:30 PM\nCinema 1 (₱730)"
+                btn_text = f"{time_str}\n{hall_name} (₱{price})"
                 
                 btn = tk.Button(
                     btn_frame,
