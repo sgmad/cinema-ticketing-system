@@ -122,7 +122,6 @@ class CustomerHome:
         self.scroll_container = ScrollableFrame(self.window)
         self.scroll_container.pack(fill="both", expand=True)
 
-        # UPDATED: Slightly smaller width to ensure 6 fit on screen
         self.poster_width = 210 
         self.poster_height = 315
         self.poster_padding = 15
@@ -150,13 +149,15 @@ class CustomerHome:
         btn.bind("<Leave>", on_leave)
 
     def load_week_view(self):
+        """ Clears the screen and reloads the schedule """
         for widget in self.scroll_container.scroll_window.winfo_children():
             widget.destroy()
         self.images = []
 
         today = datetime.now()
         
-        for i in range(7): 
+        # CHANGED: Loop 14 times instead of 7
+        for i in range(14): 
             date_obj = today + timedelta(days=i)
             date_str = date_obj.strftime('%Y-%m-%d')
             display_date = date_obj.strftime("%A, %d %B") 
@@ -171,7 +172,6 @@ class CustomerHome:
         
         # 1. Date Header
         header_container = tk.Frame(parent, bg=BG_COLOR, pady=10)
-        # UPDATED: Reduced padx here too
         header_container.pack(fill="x", pady=(30, 10), padx=20) 
         
         tk.Frame(header_container, bg=ACCENT, width=5, height=30).pack(side="left")
@@ -183,7 +183,6 @@ class CustomerHome:
         
         # 2. Grid
         grid_frame = tk.Frame(parent, bg=BG_COLOR)
-        # UPDATED: Reduced padx from 40 to 20 to shift everything Left
         grid_frame.pack(fill="x", padx=20)
 
         columns_per_row = 6 
