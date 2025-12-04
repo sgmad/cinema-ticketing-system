@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 from db.queries import get_all_bookings, delete_booking
 
 # THEME
-BG_COLOR = "#f0f0f0" 
+BG_COLOR = "#f0f0f0" # Admin side stays light for contrast/readability
 HEADER_TXT = "white"
 
 class AdminBookings:
