@@ -1,37 +1,24 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from db.queries import get_all_halls, add_hall, delete_hall, update_hall
 
-class AdminHalls:
+# OOP IMPORTS
+from gui.base_window import BaseWindow
+from db.db_manager import DatabaseManager
+
+class AdminHalls(BaseWindow):
     def __init__(self):
-        self.window = tk.Toplevel()
-        self.window.title("Manage Cinemas / Halls")
+        # 1. BaseWindow Setup (Title, Width, Height)
+        super().__init__("Manage Cinemas / Halls", 800, 550)
         
-        # 1. CENTERED GEOMETRY
-        w, h = 800, 550
-        sw = self.window.winfo_screenwidth()
-        sh = self.window.winfo_screenheight()
-        x = int(sw/2 - w/2)
-        y = int(sh/2 - h/2)
-        self.window.geometry(f"{w}x{h}+{x}+{y}")
-        self.window.configure(bg="#f0f0f0")
-        
-        self.current_edit_id = None # Track edit state
+        self.db = DatabaseManager()
+        self.current_edit_id = None 
 
-        # ==========================================
-        # HEADER
-        # ==========================================
-        # header_frame = tk.Frame(self.window, bg="#607D8B", pady=20)
-        # header_frame.pack(fill="x")
-        # self.lbl_header = tk.Label(
-        #     header_frame, 
-        #     text="Cinema Hall Configuration", 
-        #     font=("Arial", 18, "bold"), fg="white", bg="#607D8B"
-        # )
-        # self.lbl_header.pack()
+        self.setup_ui()
+        self.load_data()
 
+    def setup_ui(self):
         # Main Layout Container
-        main_frame = tk.Frame(self.window, bg="#f0f0f0", padx=20, pady=20)
+        main_frame = tk.Frame(self, bg="#f0f0f0", padx=20, pady=20)
         main_frame.pack(fill="both", expand=True)
 
         # ==========================================
@@ -91,8 +78,8 @@ class AdminHalls:
             tk.Label(f, text=label, font=("Arial", 9, "bold"), fg="#444", bg="#f0f0f0").pack(side="left")
             tk.Label(f, text=size, font=("Arial", 9), fg="#666", bg="#f0f0f0").pack(side="right")
 
-        add_guide_row("Standard:", "10 rows x 14 cols")
-        add_guide_row("IMAX:", "14 rows x 20 cols")
+        add_guide_row("Standard:", "8 rows x 12 cols")
+        add_guide_row("IMAX:", "12 rows x 18 cols")
         add_guide_row("VIP / Luxe:", "5 rows x 8 cols")
 
         # ==========================================
@@ -101,14 +88,17 @@ class AdminHalls:
         frame_right = tk.Frame(main_frame, bg="white")
         frame_right.pack(side="right", fill="both", expand=True)
         
-        tk.Label(frame_right, text="Click row to Edit", font=("Arial", 10, "italic"), fg="#666", bg="white").pack(anchor="ne")
+        tk.Label(frame_right, text="Click row to Edit", font=("Arial", 10, "italic"), fg="#666", bg="#f0f0f0").pack(anchor="ne")
 
-        cols = ("ID", "Name", "Size")
+        # Updated Columns to match OOP features (Added Type & Price)
+        cols = ("ID", "Name", "Size", "Type", "Price")
         self.tree = ttk.Treeview(frame_right, columns=cols, show="headings")
         
         self.tree.heading("ID", text="ID"); self.tree.column("ID", width=40, anchor="center")
         self.tree.heading("Name", text="Hall Name"); self.tree.column("Name", width=150)
         self.tree.heading("Size", text="Grid Size"); self.tree.column("Size", width=100, anchor="center")
+        self.tree.heading("Type", text="Class"); self.tree.column("Type", width=100, anchor="center")
+        self.tree.heading("Price", text="Base Price"); self.tree.column("Price", width=100, anchor="center")
         
         scrollbar = ttk.Scrollbar(frame_right, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
@@ -117,14 +107,13 @@ class AdminHalls:
         scrollbar.pack(side="right", fill="y")
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
-        self.load_data()
 
     def on_select(self, event):
         sel = self.tree.selection()
         if not sel: return
 
         item = self.tree.item(sel)
-        vals = item['values'] # [id, Name, "10 x 14"]
+        vals = item['values'] 
         
         self.current_edit_id = vals[0]
         
@@ -148,32 +137,33 @@ class AdminHalls:
         cols = self.entry_cols.get()
 
         if not name or not rows or not cols:
-            messagebox.showerror("Error", "All fields required", parent=self.window)
+            messagebox.showerror("Error", "All fields required", parent=self)
             return
 
         try:
             r = int(rows)
             c = int(cols)
         except ValueError:
-            messagebox.showerror("Error", "Rows and Columns must be numbers.", parent=self.window)
+            messagebox.showerror("Error", "Rows and Columns must be numbers.", parent=self)
             return
 
         if r > 20 or c > 30:
-             if not messagebox.askyesno("Warning", "That is a very large grid. It might not fit on the screen.\nContinue?", parent=self.window):
+             if not messagebox.askyesno("Warning", "That is a very large grid. It might not fit on the screen.\nContinue?", parent=self):
                  return
 
+        # USE DB MANAGER
         if self.current_edit_id:
             # UPDATE
-            if update_hall(self.current_edit_id, name, r, c):
-                messagebox.showinfo("Success", "Hall Updated", parent=self.window)
+            if self.db.update_hall(self.current_edit_id, name, r, c):
+                messagebox.showinfo("Success", "Hall Updated", parent=self)
                 self.clear_form()
                 self.load_data()
             else:
-                messagebox.showerror("Error", "Update Failed", parent=self.window)
+                messagebox.showerror("Error", "Update Failed", parent=self)
         else:
             # CREATE
-            if add_hall(name, r, c):
-                messagebox.showinfo("Success", "Hall Created", parent=self.window)
+            if self.db.add_hall(name, r, c):
+                messagebox.showinfo("Success", "Hall Created", parent=self)
                 self.clear_form()
                 self.load_data()
 
@@ -191,26 +181,37 @@ class AdminHalls:
     def remove_hall(self):
         sel = self.tree.selection()
         if sel:
-            if not messagebox.askyesno("Confirm", "Are you sure you want to delete this hall?", parent=self.window):
+            if not messagebox.askyesno("Confirm", "Are you sure you want to delete this hall?", parent=self):
                 return
 
             hall_id = self.tree.item(sel)['values'][0]
             
-            if delete_hall(hall_id):
+            # USE DB MANAGER
+            if self.db.delete_hall(hall_id):
                 self.clear_form()
                 self.load_data()
             else:
-                messagebox.showerror("Error", "Could not delete. It might be in use by a showtime.", parent=self.window)
+                messagebox.showerror("Error", "Could not delete. It might be in use by a showtime.", parent=self)
         else:
-            messagebox.showwarning("Warning", "Please select a hall to delete.", parent=self.window)
+            messagebox.showwarning("Warning", "Please select a hall to delete.", parent=self)
 
     def load_data(self):
         for i in self.tree.get_children(): self.tree.delete(i)
-        for h in get_all_halls():
-            self.tree.insert("", "end", values=(h['id'], h['name'], f"{h['total_rows']} x {h['total_cols']}"))
-
-    def run(self):
-        self.window.mainloop()
+        
+        # USE DB MANAGER (OOP Returns Hall Objects)
+        halls = self.db.fetch_all_halls()
+        
+        for h in halls:
+            # Determine type for display (Polymorphism visualization)
+            hall_type = h.__class__.__name__.replace("Hall", "") # "IMAXHall" -> "IMAX"
+            
+            self.tree.insert("", "end", values=(
+                h.id, 
+                h.name, 
+                f"{h.rows} x {h.cols}",
+                hall_type,
+                f"₱{h.get_base_price()}"
+            ))
 
 if __name__ == "__main__":
     AdminHalls().run()
