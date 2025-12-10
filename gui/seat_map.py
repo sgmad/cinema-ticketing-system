@@ -23,7 +23,6 @@ class SeatMap(BaseWindow):
         self.db = DatabaseManager()
         
         # 2. Calculate Window Size based on Hall dimensions
-        # Logic moved from BaseWindow, but params passed here
         cols = self.showtime.total_cols
         rows = self.showtime.total_rows
         w = max(900, cols * 55 + 200)
@@ -85,14 +84,23 @@ class SeatMap(BaseWindow):
                 seat_num = c + 1
                 is_taken = (row_label, seat_num) in self.taken_seats
                 
-                bg = SEAT_TAKEN if is_taken else SEAT_AVAILABLE
-                state = "disabled" if is_taken else "normal"
-                cursor = "arrow" if is_taken else "hand2"
-                text = "✖" if is_taken else str(seat_num)
+                # RESTORED "GREYED OUT" LOGIC
+                if is_taken:
+                    bg = BG_COLOR       # Invisible background (matches frame)
+                    fg = SEAT_TAKEN     # Red X
+                    text = "✖"
+                    state = "disabled"
+                    cursor = "arrow"
+                else:
+                    bg = SEAT_AVAILABLE # Dark Grey Box
+                    fg = TEXT_MAIN      # White Number
+                    text = str(seat_num)
+                    state = "normal"
+                    cursor = "hand2"
 
                 btn = tk.Button(
                     self.grid_frame, text=text, width=4, height=2,
-                    bg=bg, fg=TEXT_MAIN, relief="flat", bd=0,
+                    bg=bg, fg=fg, relief="flat", bd=0,
                     activebackground=ACCENT, activeforeground="#000",
                     state=state, cursor=cursor, font=("Arial", 9)
                 )
@@ -177,8 +185,6 @@ class SeatMap(BaseWindow):
 
         if booking_id:
             self.destroy()
-            # Receipt Window still expects raw data args, we can leave it or refactor it later.
-            # For now, passing arguments normally is fine.
             receipt = ReceiptWindow(
                 booking_id,
                 self.movie_title, 
