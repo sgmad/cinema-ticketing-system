@@ -7,7 +7,7 @@ from db.db_manager import DatabaseManager
 
 class AdminHalls(BaseWindow):
     def __init__(self):
-        # 1. BaseWindow Setup (Title, Width, Height)
+        # 1. BaseWindow Setup
         super().__init__("Manage Cinemas / Halls", 800, 550)
         
         self.db = DatabaseManager()
@@ -22,15 +22,16 @@ class AdminHalls(BaseWindow):
         main_frame.pack(fill="both", expand=True)
 
         # ==========================================
-        # LEFT SIDE: FORM
+        # LEFT COLUMN: INPUT FORM
         # ==========================================
         frame_left = tk.Frame(main_frame, bg="#f0f0f0", width=300)
         frame_left.pack(side="left", fill="y", padx=(0, 20))
 
+        # Form Title
         self.lbl_form_title = tk.Label(frame_left, text="Add New Hall", font=("Arial", 14, "bold"), bg="#f0f0f0")
         self.lbl_form_title.pack(anchor="w", pady=(0, 15))
 
-        # Helper for Inputs
+        # Helper for Form Inputs
         def add_input(label):
             tk.Label(frame_left, text=label, bg="#f0f0f0", font=("Arial", 10, "bold")).pack(anchor="w", pady=(5, 0))
             entry = tk.Entry(frame_left, font=("Arial", 11), width=25)
@@ -68,7 +69,7 @@ class AdminHalls(BaseWindow):
             command=self.remove_hall
         ).pack(fill="x", pady=(10,0))
 
-        # Layout Guide
+        # Reference Guide for Layouts
         guide_frame = tk.LabelFrame(frame_left, text="Recommended Layouts", padx=10, pady=10, bg="#f0f0f0", fg="#666")
         guide_frame.pack(fill="x", pady=(20, 0))
 
@@ -83,14 +84,22 @@ class AdminHalls(BaseWindow):
         add_guide_row("VIP / Luxe:", "5 rows x 8 cols")
 
         # ==========================================
-        # RIGHT SIDE: LIST
+        # RIGHT COLUMN: HALL LIST
         # ==========================================
-        frame_right = tk.Frame(main_frame, bg="white")
+        # Background is gray to blend with window, preventing white bar artifacts
+        frame_right = tk.Frame(main_frame, bg="#f0f0f0") 
         frame_right.pack(side="right", fill="both", expand=True)
         
-        tk.Label(frame_right, text="Click row to Edit", font=("Arial", 10, "italic"), fg="#666", bg="#f0f0f0").pack(anchor="ne")
+        # Instructions Label
+        tk.Label(
+            frame_right, 
+            text="Click row to Edit", 
+            font=("Arial", 10, "italic"), 
+            fg="#666", 
+            bg="#f0f0f0"
+        ).pack(anchor="w", pady=(0, 5))
 
-        # Updated Columns to match OOP features (Added Type & Price)
+        # Data Table
         cols = ("ID", "Name", "Size", "Type", "Price")
         self.tree = ttk.Treeview(frame_right, columns=cols, show="headings")
         
@@ -103,8 +112,9 @@ class AdminHalls(BaseWindow):
         scrollbar = ttk.Scrollbar(frame_right, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
 
-        self.tree.pack(side="left", fill="both", expand=True)
+        # Scrollbar on right, tree fills remaining space
         scrollbar.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 
@@ -117,17 +127,16 @@ class AdminHalls(BaseWindow):
         
         self.current_edit_id = vals[0]
         
-        # Parse dimensions string "10 x 14"
+        # Parse dimensions string (e.g. "10 x 14") to populate inputs
         dims = vals[2].split(" x ")
         rows = dims[0]
         cols = dims[1]
 
-        # Populate
         self.entry_name.delete(0, 'end'); self.entry_name.insert(0, vals[1])
         self.entry_rows.delete(0, 'end'); self.entry_rows.insert(0, rows)
         self.entry_cols.delete(0, 'end'); self.entry_cols.insert(0, cols)
 
-        # UI Update
+        # Update Form State to "Edit Mode"
         self.lbl_form_title.config(text=f"Edit Hall #{self.current_edit_id}", fg="#2196F3")
         self.btn_save.config(text="Update Hall", bg="#2196F3")
 
@@ -151,9 +160,8 @@ class AdminHalls(BaseWindow):
              if not messagebox.askyesno("Warning", "That is a very large grid. It might not fit on the screen.\nContinue?", parent=self):
                  return
 
-        # USE DB MANAGER
         if self.current_edit_id:
-            # UPDATE
+            # Update Existing Hall
             if self.db.update_hall(self.current_edit_id, name, r, c):
                 messagebox.showinfo("Success", "Hall Updated", parent=self)
                 self.clear_form()
@@ -161,7 +169,7 @@ class AdminHalls(BaseWindow):
             else:
                 messagebox.showerror("Error", "Update Failed", parent=self)
         else:
-            # CREATE
+            # Create New Hall
             if self.db.add_hall(name, r, c):
                 messagebox.showinfo("Success", "Hall Created", parent=self)
                 self.clear_form()
@@ -186,7 +194,6 @@ class AdminHalls(BaseWindow):
 
             hall_id = self.tree.item(sel)['values'][0]
             
-            # USE DB MANAGER
             if self.db.delete_hall(hall_id):
                 self.clear_form()
                 self.load_data()
@@ -198,12 +205,12 @@ class AdminHalls(BaseWindow):
     def load_data(self):
         for i in self.tree.get_children(): self.tree.delete(i)
         
-        # USE DB MANAGER (OOP Returns Hall Objects)
+        # Use DB Manager to fetch Hall Objects
         halls = self.db.fetch_all_halls()
         
         for h in halls:
-            # Determine type for display (Polymorphism visualization)
-            hall_type = h.__class__.__name__.replace("Hall", "") # "IMAXHall" -> "IMAX"
+            # Polymorphism: Use object method to get price, Class name for type
+            hall_type = h.__class__.__name__.replace("Hall", "") 
             
             self.tree.insert("", "end", values=(
                 h.id, 

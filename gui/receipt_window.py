@@ -164,10 +164,9 @@ class ReceiptWindow:
         ).pack(side="right")
 
     def print_to_console(self):
-        """ Simulates printing without interrupting UI """
         print(self.receipt_text)
-        # Optional: You could update the button text momentarily to say "Printed!" 
-        # but standard behavior is usually silent success.
+        # Optional: Could update the button text momentarily to say "Printed!" 
+        # Quirky
 
     def close_all(self):
         self.window.destroy()

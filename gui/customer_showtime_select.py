@@ -22,7 +22,7 @@ class CustomerShowtimeSelect(BaseWindow):
         self.movie = movie_object
         
         # 2. Initialize BaseWindow
-        super().__init__(f"Showtimes - {self.movie.title}", 1000, 650, BG_COLOR)
+        super().__init__(f"Showtimes - {self.movie.title}", 1000, 720, BG_COLOR)
         
         self.db = DatabaseManager()
         
@@ -72,13 +72,8 @@ class CustomerShowtimeSelect(BaseWindow):
             tk.Label(row, text=value, font=("Helvetica", 10), fg=TEXT_MAIN, bg=BG_COLOR, anchor="w", wraplength=200, justify="left").pack(side="left", fill="x")
             tk.Frame(info_frame, bg="#222", height=1).pack(fill="x", pady=4) 
 
-        # Format Duration
-        mins = self.movie.duration
-        h = mins // 60
-        m = mins % 60
-        duration_str = f"{h}h {m}m"
-        
-        add_row("Runtime", duration_str)
+        # Use Model Method for Runtime
+        add_row("Runtime", self.movie.get_display_duration())
         add_row("Director", self.movie.director)
         add_row("Cast", self.movie.cast)
 

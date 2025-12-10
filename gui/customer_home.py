@@ -1,109 +1,67 @@
 import tkinter as tk
-from tkinter import ttk 
-import tkinter.font as tkfont
 from PIL import Image, ImageTk
-import os
-import ctypes 
 from datetime import datetime, timedelta
 
-# DB Imports
-from db.queries import get_movies_by_date
+# OOP IMPORTS
+from gui.base_window import BaseWindow
+from gui.components import ScrollableFrame
+from db.db_manager import DatabaseManager
 from gui.admin_login import AdminLogin
 from gui.customer_showtime_select import CustomerShowtimeSelect
 
-# =========================================================
-# DESIGN SYSTEM: "Cyberpunk Violet"
-# =========================================================
-BG_COLOR = "#121212"       
-SURFACE_COLOR = "#1E1E1E"  
-HEADER_BG = "#000000"      
-TEXT_MAIN = "#FFFFFF"      
-TEXT_SUB = "#B3B3B3"       
-ACCENT = "#BB86FC"         
-ACCENT_DARK = "#3700B3"    
+# THEME CONSTANTS
+BG_COLOR = "#121212"
+SURFACE_COLOR = "#1E1E1E"
+HEADER_BG = "#000000"
+TEXT_MAIN = "#FFFFFF"
+ACCENT = "#BB86FC"
+ACCENT_DARK = "#3700B3"
 
-class ScrollableFrame(tk.Frame):
-    def __init__(self, container, *args, **kwargs):
-        super().__init__(container, *args, **kwargs)
-        
-        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0, bg=BG_COLOR)
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview, style="Dark.Vertical.TScrollbar")
-        self.scroll_window = tk.Frame(self.canvas, bg=BG_COLOR)
-
-        self.scroll_window.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-
-        self.canvas.create_window((0, 0), window=self.scroll_window, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-        
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-
-    def _on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-
-class CustomerHome:
+class CustomerHome(BaseWindow): # INHERITANCE
     def __init__(self):
-        self.window = tk.Tk()
-        self.window.title("ScreenPass Cinemas")
-        self.window.configure(bg=BG_COLOR)
+        # Call BaseWindow constructor (Title, Width, Height)
+        # Note: We use 1400x900 as a default, but BaseWindow handles centering/maximizing logic
+        super().__init__("ScreenPass Cinemas", 1400, 900, BG_COLOR)
+        
+        # COMPOSITION
+        self.db = DatabaseManager()
+        
+        # State
+        self.poster_width = 210 
+        self.poster_height = 315
+        self.poster_padding = 15
+        self.images = [] 
 
-        # ---------------------------------------------------------
-        # SCROLLBAR STYLE
-        # ---------------------------------------------------------
-        style = ttk.Style()
-        style.theme_use('clam') 
-        style.configure("Dark.Vertical.TScrollbar",
-            gripcount=0, background="#333333", darkcolor=BG_COLOR, lightcolor=BG_COLOR,
-            troughcolor=BG_COLOR, bordercolor=BG_COLOR, arrowcolor="white"
-        )
-        style.map("Dark.Vertical.TScrollbar", background=[("active", ACCENT), ("pressed", ACCENT_DARK)])
-
-        # Dark Title Bar
+        # Setup UI
         try:
-            self.window.update()
-            set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-            get_parent = ctypes.windll.user32.GetParent
-            hwnd = get_parent(self.window.winfo_id())
-            value = ctypes.c_int(2)
-            set_window_attribute(hwnd, 20, ctypes.byref(value), ctypes.sizeof(value))
+            self.state('zoomed') 
         except: pass
+        
+        self.setup_header()
+        self.setup_content()
+        self.load_week_view()
 
-        try:
-            self.window.state('zoomed') 
-        except:
-            self.window.geometry("1400x900")
-
-        # 1. HEADER
-        header_frame = tk.Frame(self.window, bg=HEADER_BG, pady=20, padx=40)
+    def setup_header(self):
+        header_frame = tk.Frame(self, bg=HEADER_BG, pady=20, padx=40)
         header_frame.pack(fill="x")
-        tk.Frame(self.window, bg=ACCENT, height=2).pack(fill="x")
+        tk.Frame(self, bg=ACCENT, height=2).pack(fill="x")
 
+        # Logo
         logo_frame = tk.Frame(header_frame, bg=HEADER_BG)
         logo_frame.pack(side="left")
         tk.Label(logo_frame, text="Screen", font=("Helvetica", 26, "bold"), fg=TEXT_MAIN, bg=HEADER_BG).pack(side="left")
         tk.Label(logo_frame, text="Pass", font=("Helvetica", 26, "bold"), fg=ACCENT, bg=HEADER_BG).pack(side="left")
 
+        # Buttons
         btn_frame = tk.Frame(header_frame, bg=HEADER_BG)
         btn_frame.pack(side="right")
         self.create_header_btn(btn_frame, "🔄 Refresh", self.load_week_view)
         tk.Frame(btn_frame, width=20, bg=HEADER_BG).pack(side="left") 
         self.create_header_btn(btn_frame, "Admin Portal", self.open_admin_login, is_primary=True)
 
-        # 2. CONTENT
-        self.scroll_container = ScrollableFrame(self.window)
+    def setup_content(self):
+        self.scroll_container = ScrollableFrame(self)
         self.scroll_container.pack(fill="both", expand=True)
-
-        self.poster_width = 210 
-        self.poster_height = 315
-        self.poster_padding = 15
-        self.images = [] 
-
-        self.load_week_view()
 
     def create_header_btn(self, parent, text, command, is_primary=False):
         bg = ACCENT if is_primary else "#333333"
@@ -115,30 +73,29 @@ class CustomerHome:
             padx=20, pady=8, relief="flat", cursor="hand2", command=command
         )
         btn.pack(side="left")
+        
+        # Hover Effects
         def on_enter(e): btn.config(bg=ACCENT_DARK, fg=TEXT_MAIN)
         def on_leave(e): btn.config(bg=bg, fg=fg)
         btn.bind("<Enter>", on_enter)
         btn.bind("<Leave>", on_leave)
 
     def load_week_view(self):
+        # Clear existing
         for widget in self.scroll_container.scroll_window.winfo_children():
             widget.destroy()
         self.images = []
 
         today = datetime.now()
-        
         print("Rendering Schedule...")
         
-        # LOOP FOR 14 DAYS
         for i in range(14): 
             date_obj = today + timedelta(days=i)
             date_str = date_obj.strftime('%Y-%m-%d')
             display_date = date_obj.strftime("%A, %d %B") 
             
-            # Debug print to verify loop runs 14 times
-            # print(f"Checking schedule for Day {i+1}: {date_str}")
-            
-            movies = get_movies_by_date(date_str)
+            # ABSTRACTION: Asking the DB Manager for Objects
+            movies = self.db.fetch_movies_by_date(date_str)
             
             if movies:
                 self.create_day_section(display_date, movies)
@@ -146,6 +103,7 @@ class CustomerHome:
     def create_day_section(self, date_text, movies):
         parent = self.scroll_container.scroll_window
         
+        # Section Header
         header_container = tk.Frame(parent, bg=BG_COLOR, pady=10)
         header_container.pack(fill="x", pady=(30, 10), padx=20) 
         tk.Frame(header_container, bg=ACCENT, width=5, height=30).pack(side="left")
@@ -155,17 +113,18 @@ class CustomerHome:
         grid_frame.pack(fill="x", padx=20)
 
         columns_per_row = 6 
-        for index, movie in enumerate(movies):
+        for index, movie_obj in enumerate(movies):
             r = index // columns_per_row
             c = index % columns_per_row
-            self.create_poster(grid_frame, movie, r, c)
+            self.create_poster(grid_frame, movie_obj, r, c)
 
     def create_poster(self, parent, movie, r, c):
+        # Note: 'movie' here is now an OBJECT, not a dictionary!
         canvas = tk.Canvas(parent, width=self.poster_width, height=self.poster_height, bg=SURFACE_COLOR, highlightthickness=0)
         canvas.grid(row=r, column=c, padx=self.poster_padding, pady=self.poster_padding)
 
-        image_path = movie.get('poster_path', 'assets/sample_posters/default.png')
-        if not os.path.exists(image_path): image_path = os.path.abspath(image_path)
+        # ENCAPSULATION: The movie object knows how to find its poster
+        image_path = movie.get_poster_path()
              
         try:
             img = Image.open(image_path)
@@ -174,27 +133,20 @@ class CustomerHome:
             self.images.append(photo) 
             canvas.create_image(0, 0, anchor="nw", image=photo)
         except:
-            canvas.create_text(self.poster_width//2, self.poster_height//2, text=movie['title'], width=180, font=("Helvetica", 10, "bold"), fill=TEXT_MAIN)
+            # Fallback text
+            canvas.create_text(self.poster_width//2, self.poster_height//2, text=movie.title, width=180, font=("Helvetica", 10, "bold"), fill=TEXT_MAIN)
 
-        # =========================================================
-        # CORRECTED OVERLAY LOGIC
-        # =========================================================
+        # OVERLAY
         overlay_rect = canvas.create_rectangle(0, 0, self.poster_width, self.poster_height, fill="#0a0a0a", outline=ACCENT, width=2, state="hidden")
         pad = 16
         
-        overlay_title = canvas.create_text(pad, 30, text=movie['title'], fill=TEXT_MAIN, anchor="nw", font=("Helvetica", 13, "bold"), width=self.poster_width - (pad*2), state="hidden")
+        # Accessing Object Attributes directly
+        overlay_title = canvas.create_text(pad, 30, text=movie.title, fill=TEXT_MAIN, anchor="nw", font=("Helvetica", 13, "bold"), width=self.poster_width - (pad*2), state="hidden")
         
-        # DATA FIX: Use 'imdb_rating' for the Star, 'rating' for the MPAA Badge
-        user_rating = movie.get('imdb_rating', '★ -/10')
-        mpaa_rating = movie.get('rating', 'NR')
-        duration = f"{movie.get('duration_minutes', 0)}m"
-        
-        meta_text = f"{user_rating}  |  {mpaa_rating}\n🕑 {duration}"
-        
+        meta_text = f"{movie.imdb_rating}  |  {movie.rating}\n🕑 {movie.get_display_duration()}"
         overlay_meta = canvas.create_text(pad, 90, text=meta_text, fill=ACCENT, anchor="nw", font=("Helvetica", 10, "bold"), state="hidden")
         
-        desc = movie.get('description', '')
-        if len(desc) > 120: desc = desc[:120] + "..."
+        desc = movie.description if len(movie.description) <= 120 else movie.description[:120] + "..."
         overlay_desc = canvas.create_text(pad, 135, text=desc, fill="#CCCCCC", anchor="nw", font=("Helvetica", 9), width=self.poster_width - (pad*2), state="hidden")
 
         overlay_items = [overlay_rect, overlay_title, overlay_meta, overlay_desc]
@@ -203,7 +155,8 @@ class CustomerHome:
             for it in overlay_items: canvas.itemconfigure(it, state="normal")
         def on_leave(e): 
             for it in overlay_items: canvas.itemconfigure(it, state="hidden")
-        def on_click(e): self.open_showtimes(movie)
+        
+        def on_click(e): self.open_showtimes(movie) # Pass the Object directly!
 
         canvas.bind("<Enter>", on_enter)
         canvas.bind("<Leave>", on_leave)
@@ -217,9 +170,6 @@ class CustomerHome:
         admin = AdminLogin()
         admin.run()
         self.load_week_view()
-        
-    def run(self):
-        self.window.mainloop()
 
 if __name__ == "__main__":
     app = CustomerHome()

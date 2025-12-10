@@ -1,39 +1,31 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from db.queries import get_all_movies, add_movie, delete_movie, create_connection
-from gui.admin_scheduler import AdminScheduler
-from gui.admin_bookings import AdminBookings
-from gui.admin_halls import AdminHalls
 import shutil
 import os
 
-class AdminDashboard:
-    def __init__(self):
-        self.window = tk.Toplevel()
-        self.window.title("Admin Dashboard - Movie Management")
-        self.window.configure(bg="#f0f0f0")
+# OOP IMPORTS
+from gui.base_window import BaseWindow
+from db.db_manager import DatabaseManager
+from gui.admin_scheduler import AdminScheduler
+from gui.admin_bookings import AdminBookings
+from gui.admin_halls import AdminHalls
 
-        window_width = 1150
-        window_height = 750
+class AdminDashboard(BaseWindow):
+    def __init__(self):
+        super().__init__("Admin Dashboard - Movie Management", 1150, 750)
         
-        screen_width = self.window.winfo_screenwidth()
-        screen_height = self.window.winfo_screenheight()
-        
-        center_x = int(screen_width/2 - window_width/2)
-        center_y = int(screen_height/2 - window_height/2)
-        
-        self.window.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
-        
-        self.selected_image_path = None
-        self.current_edit_id = None
-        
+        self.db = DatabaseManager()
         self.selected_image_path = None
         self.current_edit_id = None 
 
+        self.setup_ui()
+        self.refresh_table()
+
+    def setup_ui(self):
         # ==========================================
         # LEFT SIDE: FORM
         # ==========================================
-        frame_left = tk.Frame(self.window, width=400, bg="#f0f0f0", padx=15, pady=15)
+        frame_left = tk.Frame(self, width=400, bg="#f0f0f0", padx=15, pady=15)
         frame_left.pack(side="left", fill="y")
         
         self.lbl_header = tk.Label(frame_left, text="Add New Movie", font=("Arial", 16, "bold"), bg="#f0f0f0")
@@ -43,7 +35,6 @@ class AdminDashboard:
         input_frame = tk.Frame(frame_left, bg="#f0f0f0")
         input_frame.pack(fill="x")
 
-        # Standard Helper
         def create_entry(label_text):
             tk.Label(input_frame, text=label_text, bg="#f0f0f0", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5,0))
             entry = tk.Entry(input_frame, font=("Arial", 10))
@@ -72,7 +63,7 @@ class AdminDashboard:
         self.entry_imdb = tk.Entry(row2, width=15)
         self.entry_imdb.pack(side="left", padx=5)
 
-        # Tagline (Review field)
+        # Tagline
         tk.Label(input_frame, text="Tagline / Marketing Hook:", bg="#f0f0f0", font=("Arial", 9, "bold")).pack(anchor="w", pady=(10,0))
         self.entry_tagline = tk.Entry(input_frame, font=("Arial", 10))
         self.entry_tagline.pack(fill="x")
@@ -110,7 +101,7 @@ class AdminDashboard:
         # ==========================================
         # RIGHT SIDE: TABLE
         # ==========================================
-        frame_right = tk.Frame(self.window, bg="white", padx=20, pady=20)
+        frame_right = tk.Frame(self, bg="white", padx=20, pady=20)
         frame_right.pack(side="right", fill="both", expand=True)
         
         tk.Label(frame_right, text="Inventory List", font=("Arial", 12, "bold"), bg="white").pack(anchor="nw")
@@ -131,13 +122,12 @@ class AdminDashboard:
         scrollbar.pack(side="right", fill="y")
 
         self.tree.bind("<<TreeviewSelect>>", self.on_movie_select)
-        self.refresh_table()
 
     # =========================================================
     # LOGIC
     # =========================================================
     def select_image(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")], parent=self.window)
+        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")], parent=self)
         if file_path:
             self.selected_image_path = file_path
             self.lbl_image_status.config(text=f"New: {os.path.basename(file_path)}", fg="green")
@@ -148,20 +138,20 @@ class AdminDashboard:
 
         self.current_edit_id = self.tree.item(selected)['values'][0]
         
-        conn = create_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM movies WHERE id = %s", (self.current_edit_id,))
-        movie = cursor.fetchone()
-        conn.close()
+        # USE DB MANAGER to get Object
+        movie = self.db.get_movie_by_id(self.current_edit_id)
 
         if movie:
-            self.entry_title.delete(0, 'end'); self.entry_title.insert(0, movie['title'])
-            self.entry_genre.delete(0, 'end'); self.entry_genre.insert(0, movie['genre'])
-            self.entry_duration.delete(0, 'end'); self.entry_duration.insert(0, str(movie['duration_minutes']))
-            self.entry_mpaa.delete(0, 'end'); self.entry_mpaa.insert(0, movie.get('rating', ''))
-            self.entry_imdb.delete(0, 'end'); self.entry_imdb.insert(0, movie.get('imdb_rating', ''))
-            self.entry_tagline.delete(0, 'end'); self.entry_tagline.insert(0, movie.get('review', '').replace('"', ''))
-            self.text_desc.delete("1.0", 'end'); self.text_desc.insert("1.0", movie['description'])
+            self.entry_title.delete(0, 'end'); self.entry_title.insert(0, movie.title)
+            self.entry_genre.delete(0, 'end'); self.entry_genre.insert(0, movie.genre)
+            self.entry_duration.delete(0, 'end'); self.entry_duration.insert(0, str(movie.duration))
+            self.entry_mpaa.delete(0, 'end'); self.entry_mpaa.insert(0, movie.rating)
+            self.entry_imdb.delete(0, 'end'); self.entry_imdb.insert(0, movie.imdb_rating)
+            
+            tagline_clean = movie.tagline.replace('"', '') if movie.tagline else ""
+            self.entry_tagline.delete(0, 'end'); self.entry_tagline.insert(0, tagline_clean)
+
+            self.text_desc.delete("1.0", 'end'); self.text_desc.insert("1.0", movie.description)
             
             self.lbl_header.config(text=f"Editing Movie #{self.current_edit_id}", fg="#2196F3")
             self.btn_save.config(text="Update Movie", bg="#2196F3")
@@ -176,7 +166,7 @@ class AdminDashboard:
         desc = self.text_desc.get("1.0", "end-1c")
 
         if not title or not duration:
-            messagebox.showerror("Error", "Title and Duration are required!", parent=self.window)
+            messagebox.showerror("Error", "Title and Duration are required!", parent=self)
             return
 
         final_poster_path = None
@@ -188,41 +178,25 @@ class AdminDashboard:
                 shutil.copy(self.selected_image_path, dest)
                 final_poster_path = dest.replace("\\", "/")
             except Exception as e:
-                messagebox.showerror("Error", f"Image copy failed: {e}", parent=self.window)
+                messagebox.showerror("Error", f"Image copy failed: {e}", parent=self)
                 return
 
-        conn = create_connection()
-        cursor = conn.cursor()
+        success = False
+        if self.current_edit_id:
+            # UPDATE via Manager
+            success = self.db.update_movie(self.current_edit_id, title, genre, duration, mpaa, imdb, tagline, desc, final_poster_path)
+            if success: messagebox.showinfo("Success", "Movie Updated!", parent=self)
+        else:
+            # CREATE via Manager
+            if not final_poster_path: final_poster_path = "assets/sample_posters/default.png"
+            success = self.db.add_movie(title, genre, duration, mpaa, imdb, tagline, desc, final_poster_path)
+            if success: messagebox.showinfo("Success", "Movie Created!", parent=self)
 
-        try:
-            if self.current_edit_id:
-                if final_poster_path:
-                    query = """UPDATE movies SET title=%s, genre=%s, duration_minutes=%s, rating=%s, description=%s, poster_path=%s, review=%s, imdb_rating=%s WHERE id=%s"""
-                    vals = (title, genre, duration, mpaa, desc, final_poster_path, tagline, imdb, self.current_edit_id)
-                else:
-                    query = """UPDATE movies SET title=%s, genre=%s, duration_minutes=%s, rating=%s, description=%s, review=%s, imdb_rating=%s WHERE id=%s"""
-                    vals = (title, genre, duration, mpaa, desc, tagline, imdb, self.current_edit_id)
-                
-                cursor.execute(query, vals)
-                conn.commit()
-                messagebox.showinfo("Success", "Movie Updated!", parent=self.window)
-            
-            else:
-                if not final_poster_path: final_poster_path = "assets/sample_posters/default.png"
-                query = """INSERT INTO movies (title, genre, duration_minutes, rating, description, poster_path, review, imdb_rating) 
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
-                vals = (title, genre, duration, mpaa, desc, final_poster_path, tagline, imdb)
-                cursor.execute(query, vals)
-                conn.commit()
-                messagebox.showinfo("Success", "Movie Created!", parent=self.window)
-
-        except Exception as e:
-            messagebox.showerror("Database Error", str(e), parent=self.window)
-        finally:
-            conn.close()
-            
-        self.clear_form()
-        self.refresh_table()
+        if success:
+            self.clear_form()
+            self.refresh_table()
+        else:
+            messagebox.showerror("Error", "Database Operation Failed", parent=self)
 
     def clear_form(self):
         self.current_edit_id = None
@@ -239,25 +213,29 @@ class AdminDashboard:
     def remove_movie(self):
         sel = self.tree.selection()
         if not sel: 
-            messagebox.showwarning("Select", "Please select a movie.", parent=self.window)
+            messagebox.showwarning("Select", "Please select a movie.", parent=self)
             return
 
         movie_id = self.tree.item(sel)['values'][0]
-        if messagebox.askyesno("Confirm", "Delete this movie?", parent=self.window):
-            delete_movie(movie_id)
-            self.clear_form()
-            self.refresh_table()
+        if messagebox.askyesno("Confirm", "Delete this movie?", parent=self):
+            if self.db.delete_movie(movie_id):
+                self.clear_form()
+                self.refresh_table()
+            else:
+                messagebox.showerror("Error", "Could not delete movie.", parent=self)
 
     def refresh_table(self):
         for item in self.tree.get_children(): self.tree.delete(item)
-        for m in get_all_movies():
-            mpaa = m.get('rating', '')
-            imdb = m.get('imdb_rating', '')
-            self.tree.insert("", "end", values=(m['id'], m['title'], m['genre'], mpaa, imdb))
+        
+        # FETCH OBJECTS from DB Manager
+        movies = self.db.fetch_all_movies()
+        
+        for m in movies:
+            # Accessing properties of Movie Object (m.title, m.genre)
+            self.tree.insert("", "end", values=(m.id, m.title, m.genre, m.rating, m.imdb_rating))
 
     def open_scheduler(self): AdminScheduler().run()
     def open_bookings(self): AdminBookings().run()
-    def run(self): self.window.mainloop()
 
 if __name__ == "__main__":
     AdminDashboard().run()

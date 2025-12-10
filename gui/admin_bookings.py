@@ -1,41 +1,38 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from db.queries import get_all_bookings, delete_booking
+
+# OOP IMPORTS
+from gui.base_window import BaseWindow
+from db.db_manager import DatabaseManager
 
 # THEME
-BG_COLOR = "#f0f0f0" # Admin side stays light for contrast/readability
+BG_COLOR = "#f0f0f0"
+HEADER_BG = "#3700B3" 
 HEADER_TXT = "white"
 
-class AdminBookings:
+class AdminBookings(BaseWindow):
     def __init__(self):
-        self.window = tk.Toplevel()
-        self.window.title("Manage Bookings")
+        # 1. BaseWindow Setup
+        super().__init__("Manage Bookings", 950, 600, BG_COLOR)
         
-        # 1. CENTERED GEOMETRY
-        w, h = 950, 600
-        sw = self.window.winfo_screenwidth()
-        sh = self.window.winfo_screenheight()
-        x = int(sw/2 - w/2)
-        y = int(sh/2 - h/2)
-        self.window.geometry(f"{w}x{h}+{x}+{y}")
-        self.window.configure(bg=BG_COLOR)
+        self.db = DatabaseManager()
+        
+        self.setup_ui()
+        self.load_data()
 
-        # ==========================================
+    def setup_ui(self):
         # HEADER
-        # ==========================================
-        # header_frame = tk.Frame(self.window,pady=20)
+        # header_frame = tk.Frame(self, bg=HEADER_BG, pady=20)
         # header_frame.pack(fill="x")
         
         # tk.Label(
         #     header_frame, 
         #     text="Booking History & Refunds", 
-        #     font=("Helvetica", 18, "bold"), fg=HEADER_TXT
+        #     font=("Helvetica", 18, "bold"), fg=HEADER_TXT, bg=HEADER_BG
         # ).pack()
 
-        # ==========================================
         # TABLE AREA
-        # ==========================================
-        frame_table = tk.Frame(self.window, bg=BG_COLOR, padx=20, pady=20)
+        frame_table = tk.Frame(self, bg=BG_COLOR, padx=20, pady=20)
         frame_table.pack(fill="both", expand=True)
 
         cols = ("ID", "Date", "Customer", "Movie", "Tix", "Total")
@@ -55,10 +52,8 @@ class AdminBookings:
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # ==========================================
         # ACTION BAR
-        # ==========================================
-        btn_frame = tk.Frame(self.window, bg="#e0e0e0", pady=15, padx=20)
+        btn_frame = tk.Frame(self, bg="#e0e0e0", pady=15, padx=20)
         btn_frame.pack(side="bottom", fill="x")
 
         # Refund Button (Right)
@@ -79,31 +74,27 @@ class AdminBookings:
             command=self.load_data
         ).pack(side="left")
 
-        self.load_data()
-
     def load_data(self):
-        # Clear
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        # Fetch
-        bookings = get_all_bookings()
+        # USE DB MANAGER (Returns Booking Objects)
+        bookings = self.db.fetch_all_bookings()
         
         for b in bookings:
-            date_str = b['booking_date'].strftime("%Y-%m-%d  %H:%M")
             self.tree.insert("", "end", values=(
-                b['id'], 
-                date_str, 
-                b['customer_name'], 
-                b['title'], 
-                b['ticket_count'], 
-                f"₱{b['total_amount']:,.2f}"
+                b.id, 
+                b.get_formatted_date(), 
+                b.customer_name, 
+                b.movie_title, 
+                b.ticket_count, 
+                b.get_formatted_total()
             ))
 
     def refund_booking(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Selection Required", "Please select a booking from the list to refund.", parent=self.window)
+            messagebox.showwarning("Selection Required", "Please select a booking from the list to refund.", parent=self)
             return
 
         item = self.tree.item(selected)
@@ -113,12 +104,13 @@ class AdminBookings:
 
         msg = f"Are you sure you want to cancel the booking for:\n\nCustomer: {customer}\nAmount: {amount}\n\nThis action cannot be undone and will free up the seats."
         
-        if messagebox.askyesno("Confirm Refund", msg, icon='warning', parent=self.window):
-            if delete_booking(booking_id):
-                messagebox.showinfo("Success", "Booking cancelled successfully.\nSeats are now available.", parent=self.window)
+        if messagebox.askyesno("Confirm Refund", msg, icon='warning', parent=self):
+            # USE DB MANAGER
+            if self.db.delete_booking(booking_id):
+                messagebox.showinfo("Success", "Booking cancelled successfully.\nSeats are now available.", parent=self)
                 self.load_data()
             else:
-                messagebox.showerror("Error", "Failed to cancel booking. Please check database connection.", parent=self.window)
+                messagebox.showerror("Error", "Failed to cancel booking. Please check database connection.", parent=self)
 
-    def run(self):
-        self.window.mainloop()
+if __name__ == "__main__":
+    AdminBookings().run()
