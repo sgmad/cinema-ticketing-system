@@ -10,11 +10,10 @@ class ScrollableFrame(tk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
         
-        # --- SCROLLBAR STYLING ---
+        # --- Scrollbar Styling ---
         style = ttk.Style()
         style.theme_use('clam') 
         
-        # Configure dark style
         style.configure("Dark.Vertical.TScrollbar",
             gripcount=0, 
             background="#333333", 
@@ -25,12 +24,11 @@ class ScrollableFrame(tk.Frame):
             arrowcolor="white"
         )
         
-        # Map active states to Cyberpunk colors
         style.map("Dark.Vertical.TScrollbar", 
             background=[("active", ACCENT), ("pressed", ACCENT_DARK)]
         )
-        # -----------------------------------
 
+        # --- Canvas Setup ---
         self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0, bg=BG_COLOR)
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview, style="Dark.Vertical.TScrollbar")
         self.scroll_window = tk.Frame(self.canvas, bg=BG_COLOR)
@@ -46,7 +44,12 @@ class ScrollableFrame(tk.Frame):
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
         
+        # Global binding for mousewheel scrolling
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
 
     def _on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        try:
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        except tk.TclError:
+            # Squelch error if widget is destroyed (e.g. window closed)
+            pass
