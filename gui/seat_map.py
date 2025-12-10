@@ -84,7 +84,7 @@ class SeatMap(BaseWindow):
                 seat_num = c + 1
                 is_taken = (row_label, seat_num) in self.taken_seats
                 
-                # RESTORED "GREYED OUT" LOGIC
+                # "GREYED OUT" / UNAVAILABLE LOGIC
                 if is_taken:
                     bg = BG_COLOR       # Invisible background (matches frame)
                     fg = SEAT_TAKEN     # Red X
@@ -196,3 +196,4 @@ class SeatMap(BaseWindow):
             receipt.run()
         else:
             messagebox.showerror("Error", "Booking failed!", parent=self)
+
