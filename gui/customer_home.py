@@ -169,8 +169,8 @@ class CustomerHome(BaseWindow): # INHERITANCE
     def open_admin_login(self):
         admin = AdminLogin()
         admin.run()
-        self.load_week_view()
 
 if __name__ == "__main__":
     app = CustomerHome()
+
     app.run()
