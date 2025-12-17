@@ -96,7 +96,7 @@ pip install mysql-connector-python requests Pillow tkcalendar
 Run the rebuild script to create the `cinema_db` database and seed it with default halls and admin users.
 
 ```bash
-python nuke_and_rebuild.py
+python reset_schema.py
 
 ```
 
@@ -107,7 +107,7 @@ python nuke_and_rebuild.py
 Populate the database with real-world movie data using the scraper.
 
 ```bash
-python scraper.py
+python setup_database.py
 
 ```
 
